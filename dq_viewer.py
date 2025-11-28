@@ -38,11 +38,25 @@ def load_static_vars():
 
 SEVERITY_DATA, ANALYSIS_PRESETS = load_static_vars()
 
-# Color scheme for annotations
+# Color scheme for annotations (legacy - for non-category-specific use)
 COLORS = [
-    "#FF0000", "#00FF00", "#0000FF", "#FFFF00", 
+    "#FF0000", "#00FF00", "#0000FF", "#FFFF00",
     "#FF00FF", "#00FFFF", "#FFA500", "#800080", "#008000"
 ]
+
+# Category-specific colors for WindBlade defects
+CATEGORY_COLORS = {
+    "Contamination": "#FAFA37",
+    "Paint Damage": "#33DDFF",
+    "La Exposure": "#FF007C",
+    "La Damage": "#733380",
+    "La Crack": "#AAF0D1",
+    "Bond Crack": "#5986B3",
+    "Rain Collar": "#8C78F0",
+    "Receptor Damage": "#FF6A4D",
+    "Vortex Generator": "#24B353",
+    "Tape Damage": "#FFA500"
+}
 
 
 def get_all_json_files():
@@ -264,11 +278,29 @@ def extract_exif(image_path, dataset_type=None):
     return exif_data if exif_data else {'message': 'No EXIF data found'}
 
 
+def get_category_color(category_id, categories):
+    """Get color for a category based on category_id."""
+    # Find category name from categories list
+    category_name = None
+    for cat in categories:
+        if cat.get('id') == category_id:
+            category_name = cat.get('name')
+            break
+
+    # Return category-specific color or fallback to default
+    if category_name and category_name in CATEGORY_COLORS:
+        return CATEGORY_COLORS[category_name]
+
+    # Fallback to COLORS list
+    return COLORS[category_id % len(COLORS)] if category_id else '#FF0000'
+
+
 def draw_annotations(img, data, dataset_type=None):
     """Draw annotations on the image."""
     draw = ImageDraw.Draw(img)
 
     db_name = data.get('info', {}).get('db_name', '')
+    categories = data.get('categories', [])
 
     # Draw segmentation polygons (for PositiveDB only)
     if db_name == "PositiveDB" and 'annotations' in data:
@@ -284,7 +316,9 @@ def draw_annotations(img, data, dataset_type=None):
                         line_width = 1
                         marker_radius = 0.5
                     else:
-                        color = COLORS[idx % len(COLORS)]
+                        # For WindBlade: use category-specific colors
+                        category_id = ann.get('category_id')
+                        color = get_category_color(category_id, categories)
                         line_width = 3
                         marker_radius = 2
 
@@ -418,16 +452,19 @@ def get_file(index):
                 # Image 1: Original with cropped bbox only
                 img1 = img_original.copy()
                 draw1 = ImageDraw.Draw(img1)
-                
-                # Draw segmentation polygons
+
+                # Draw segmentation polygons with category-specific colors
                 db_name = data.get('info', {}).get('db_name', '')
+                categories = data.get('categories', [])
                 if db_name == "PositiveDB" and 'annotations' in data:
                     for idx, ann in enumerate(data['annotations']):
                         if 'segmentation' in ann:
                             seg = ann['segmentation']
                             points = [(seg[i], seg[i+1]) for i in range(0, len(seg), 2)]
                             if len(points) >= 2:
-                                color = COLORS[idx % len(COLORS)]
+                                # Use category-specific color
+                                category_id = ann.get('category_id')
+                                color = get_category_color(category_id, categories)
                                 draw1.line(points + [points[0]], fill=color, width=12)
                                 for point in points:
                                     draw1.ellipse(
