@@ -4,7 +4,7 @@ import urllib.request
 from urllib.parse import urljoin
 
 BASE_URL = "http://hyperscale-data.s3-website.ap-northeast-2.amazonaws.com/data/"
-CSV_FILE = "sampled_files_20251128_012344.csv"
+CSV_FILE = "sampled_files_20251128_085508.csv"
 DATA_DIR = "data"
 
 def download_file(url, local_path):
