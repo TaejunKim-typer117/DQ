@@ -1,0 +1,52 @@
+{
+  "comment": "Default severity for each category ID (9-category schema)",
+  "merge_info": "Updated to match target_distribution.json (9 categories, Hot Spot removed)",
+  "category_severity_map": {
+    "1": 1,
+    "2": 1,
+    "3": 2,
+    "4": 3,
+    "5": 4,
+    "6": 4,
+    "7": 2,
+    "8": 2,
+    "9": 2
+  },
+  "category_names": {
+    "1": "Contamination",
+    "2": "Tape Damage",
+    "3": "Paint Damage",
+    "4": "La Exposure",
+    "5": "La Damage",
+    "6": "Bond Crack",
+    "7": "Receptor Damage",
+    "8": "Rain Collar",
+    "9": "Vortex Generator"
+  },
+  "merge_mapping": {
+    "Bond Crack": {
+      "merged_from": ["Bond Crack", "Bond Open"],
+      "original_severities": [3, 4],
+      "final_severity": 3,
+      "note": "Used Bond Crack's original severity"
+    },
+    "Paint Damage": {
+      "merged_from": ["Paint Damage", "Paint Crack"],
+      "original_severities": [2, 2],
+      "final_severity": 2,
+      "note": "Both had same severity"
+    },
+    "La Damage": {
+      "merged_from": ["La Damage", "La Crack", "La Open"],
+      "original_severities": [4, 3, 5],
+      "final_severity": 4,
+      "note": "Used La Damage's original severity (dynamic calculation)"
+    },
+    "Receptor Damage": {
+      "merged_from": ["Receptor Damage", "Receptor Lightning"],
+      "original_severities": [2, 3],
+      "final_severity": 2,
+      "note": "Used Receptor Damage's original severity"
+    }
+  }
+}

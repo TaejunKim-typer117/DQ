@@ -1,0 +1,16 @@
+{
+  "Contamination": "풍력 외부",
+  "Tape Damage": "풍력 외부",
+  "Paint Damage": "풍력 외부",
+  "Paint Crack": "풍력 외부",
+  "La Exposure": "풍력 내부",
+  "La Damage": "풍력 내부",
+  "La Crack": "풍력 내부",
+  "La Open": "풍력 내부",
+  "Bond Crack": "풍력 내부",
+  "Bond Open": "풍력 내부",
+  "Rain Collar": "풍력 부착물",
+  "Receptor Damage": "풍력 부착물",
+  "Receptor Lightning": "풍력 부착물",
+  "Vortex Generator": "풍력 부착물"
+}

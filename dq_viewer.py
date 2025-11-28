@@ -23,6 +23,20 @@ app.config['JSON_SORT_KEYS'] = False
 DATA_DIR = Path("data")
 LABELS_DIR = DATA_DIR / "labels"
 IMAGES_DIR = DATA_DIR / "images"
+STATIC_VARS_DIR = Path("static_vars")
+
+# Load static configuration files
+def load_static_vars():
+    """Load category severity and analysis presets."""
+    with open(STATIC_VARS_DIR / "category_severity.json", 'r', encoding='utf-8') as f:
+        severity_data = json.load(f)
+
+    with open(STATIC_VARS_DIR / "q3_analysis_presets.json", 'r', encoding='utf-8') as f:
+        analysis_presets = json.load(f)
+
+    return severity_data, analysis_presets
+
+SEVERITY_DATA, ANALYSIS_PRESETS = load_static_vars()
 
 # Color scheme for annotations
 COLORS = [
@@ -41,6 +55,129 @@ def find_image_path(json_path, image_filename):
     json_rel_path = Path(json_path).relative_to(LABELS_DIR)
     image_path = IMAGES_DIR / json_rel_path.parent / image_filename
     return str(image_path)
+
+
+def identify_representative_defect(annotations):
+    """
+    Identify representative defect from annotations list.
+
+    Selects the annotation with:
+    1. Highest severity
+    2. If multiple have same severity, choose the one with largest area
+
+    Returns:
+        dict: Representative annotation or None if annotations is empty
+    """
+    if not annotations:
+        return None
+
+    # Sort by severity (descending), then by area (descending)
+    sorted_anns = sorted(
+        annotations,
+        key=lambda x: (x.get('severity', 0), x.get('area', 0)),
+        reverse=True
+    )
+
+    return sorted_anns[0]
+
+
+def get_analysis_answer(category_id, question_type):
+    """
+    Get analysis answer based on category_id and question type.
+
+    Args:
+        category_id: Category ID (1-9)
+        question_type: 'cause', 'visual', or 'severity'
+
+    Returns:
+        str: Answer text for this category and question type
+    """
+    presets = ANALYSIS_PRESETS.get('question_types', {})
+    question_config = presets.get(question_type, {})
+
+    if question_type == 'severity':
+        # Get severity level for this category
+        severity_level = SEVERITY_DATA['category_severity_map'].get(str(category_id))
+        if severity_level:
+            severity_labels = ['경미', '보통', '심각', '매우 심각']
+            if 1 <= severity_level <= 4:
+                return severity_labels[severity_level - 1]
+        return ''
+
+    # For 'cause' and 'visual' questions
+    groups = question_config.get('groups', {})
+
+    # Find which group this category belongs to and get the answer text
+    for group_name, group_data in groups.items():
+        if category_id in group_data.get('category_ids', []):
+            # Get the answer text for this specific category
+            answers = group_data.get('answers', {})
+            answer_text = answers.get(str(category_id), '')
+            return answer_text
+
+    return ''
+
+
+def enrich_visionqa_data(data):
+    """
+    Enrich VisionQA data with representative defect information.
+
+    Modifies data in place:
+    1. Identifies representative defect from annotations
+    2. Appends category name to defect_classification_a
+    3. Appends analysis answer to defect_analysis_a
+
+    Args:
+        data: JSON data dict with 'annotations' and 'visionqa' fields
+
+    Returns:
+        dict: Modified data
+    """
+    annotations = data.get('annotations', [])
+    visionqa = data.get('visionqa', {})
+
+    if not annotations or not visionqa:
+        return data
+
+    # Identify representative defect
+    rep_defect = identify_representative_defect(annotations)
+    if not rep_defect:
+        return data
+
+    category_id = rep_defect.get('category_id')
+    if not category_id:
+        return data
+
+    # Get category name
+    category_name = SEVERITY_DATA['category_names'].get(str(category_id), 'Unknown')
+
+    # Enrich defect_classification_a with category name
+    if 'defect_classification_a' in visionqa:
+        original_answer = visionqa['defect_classification_a']
+        visionqa['defect_classification_a'] = f"{original_answer}({category_name})"
+
+    # Determine question type for defect_analysis based on visionqa question
+    analysis_q = visionqa.get('defect_analysis_q', '')
+
+    # Determine question type from the question text
+    question_type = None
+    if '원인' in analysis_q:
+        question_type = 'cause'
+    elif '시각적 특징' in analysis_q:
+        question_type = 'visual'
+    elif '심각도' in analysis_q:
+        question_type = 'severity'
+
+    if question_type:
+        # Get expected answer for this defect type
+        expected_answer_text = get_analysis_answer(category_id, question_type)
+
+        # Enrich defect_analysis_a with expected answer text
+        if 'defect_analysis_a' in visionqa and expected_answer_text:
+            original_answer = visionqa['defect_analysis_a']
+            visionqa['defect_analysis_a'] = f"{original_answer}({expected_answer_text})"
+
+    return data
 
 
 def extract_exif(image_path, dataset_type=None):
@@ -235,7 +372,10 @@ def get_file(index):
         # Load JSON preserving field order
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f, object_pairs_hook=OrderedDict)
-        
+
+        # Enrich VisionQA data with representative defect information
+        data = enrich_visionqa_data(data)
+
         # Get image
         image_filename = data.get('image', {}).get('filename', '')
         image_path = find_image_path(json_path, image_filename)
