@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Quality Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #667eea;
+            margin-right: 20px;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 300px;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .counter {
+            font-size: 14px;
+            color: #666;
+            padding: 8px 15px;
+            background: #f5f5f5;
+            border-radius: 20px;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 90px;
+            bottom: 0px;
+            width: 300px;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            border-radius: 0 15px 15px 0;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s;
+            z-index: 1000;
+        }
+
+        .sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+
+        .sidebar-header {
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow: auto;
+            padding: 10px;
+            padding-bottom: 200px;
+        }
+
+        .tree-search {
+            margin-bottom: 10px;
+            padding: 8px;
+            width: 100%;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .tree-item {
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 13px;
+            margin: 2px 0;
+        }
+
+        .tree-item:hover {
+            background: #f0f0f0;
+        }
+
+        .tree-item.selected {
+            background: #667eea;
+            color: white;
+        }
+
+        .tree-folder {
+            font-weight: 600;
+            color: #667eea;
+            margin-top: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .tree-folder:hover {
+            background: #f0f0f0;
+            border-radius: 5px;
+        }
+
+        .tree-folder-content {
+            margin-left: 15px;
+            overflow: visible;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .tree-folder-content.collapsed {
+            max-height: 0;
+            overflow: hidden;
+        }
+
+        .toggle-sidebar-btn {
+            position: fixed;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 0 8px 8px 0;
+            padding: 15px 8px;
+            cursor: pointer;
+            z-index: 1001;
+            transition: left 0.3s;
+        }
+
+        .toggle-sidebar-btn.sidebar-open {
+            left: 300px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+        }
+
+        .image-panel {
+            flex: 2;
+            min-width: 0;
+        }
+
+        .json-panel {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .image-container {
+            width: 100%;
+            height: 100%;
+            background: #f8f9fa;
+            border-radius: 10px;
+            overflow: auto;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .image-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        pre {
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            font-size: 18px;
+            color: #667eea;
+        }
+
+        .error {
+            color: #e74c3c;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .status-bar {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 20px;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>🔍 Data Quality Viewer</h1>
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search files... (e.g., 'Icheon', 'WindBlade', 'Positive')">
+        </div>
+        <div class="counter" id="counter">File 0 of 0</div>
+        <div class="nav-buttons">
+            <button class="btn" id="prevBtn" onclick="prevFile()">← Previous (P)</button>
+            <button class="btn" id="nextBtn" onclick="nextFile()">Next (N) →</button>
+        </div>
+    </div>
+
+    <button class="toggle-sidebar-btn" id="toggleSidebarBtn" onclick="toggleSidebar()">☰</button>
+
+    <div class="main-content">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <span>File Browser</span>
+            </div>
+            <div class="sidebar-content">
+                <input type="text" class="tree-search" id="treeSearch" placeholder="Filter files...">
+                <div id="fileTree"></div>
+            </div>
+        </div>
+
+        <div class="panel image-panel">
+            <div class="panel-header">Image with Annotations</div>
+            <div class="panel-content">
+                <div id="imageDisplayArea"
+                    style="display: flex; flex-direction: column; gap: 10px; height: 100%; overflow: auto;">
+                    <!-- Primary image container -->
+                    <div id="imageSection1" style="display: none;">
+                        <div class="image-container" id="imageContainer" style="height: auto;">
+                            <div class="loading">Loading...</div>
+                        </div>
+                    </div>
+
+                    <!-- Secondary image container (for WindBlade cropped view) -->
+                    <div id="croppedImageSection" style="display: none;">
+                        <div class="image-container" id="imageContainer2" style="height: auto;">
+                            <div class="loading">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel json-panel">
+            <div class="panel-header">Metadata</div>
+            <div class="panel-content" style="display: flex; flex-direction: column; padding: 0;">
+                <!-- EXIF Section (1/3) -->
+                <div style="flex: 1; overflow: auto; padding: 20px; border-bottom: 2px solid #e0e0e0;">
+                    <div style="font-weight: 600; color: #667eea; margin-bottom: 10px;">EXIF Data</div>
+                    <pre id="exifContent" style="margin: 0;">Loading...</pre>
+                </div>
+                <!-- JSON Section (2/3) -->
+                <div style="flex: 2; overflow: auto; padding: 20px;">
+                    <div style="font-weight: 600; color: #667eea; margin-bottom: 10px;">JSON Metadata</div>
+                    <pre id="jsonContent" style="margin: 0;">Loading...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-bar" id="statusBar">Ready</div>
+
+    <script>
+        let currentIndex = 0;
+        let totalFiles = 0;
+        let allIndices = [];
+        let searchTimeout = null;
+        let fileList = [];
+        let sidebarOpen = true;
+
+        // Load initial file list
+        async function loadFileList() {
+            try {
+                const response = await fetch('/api/files');
+                const data = await response.json();
+                totalFiles = data.total;
+                fileList = data.files;
+                allIndices = Array.from({ length: totalFiles }, (_, i) => i);
+                updateCounter();
+                buildFileTree(fileList);
+                if (totalFiles > 0) {
+                    loadFile(0);
+                }
+            } catch (error) {
+                showError('Failed to load file list: ' + error.message);
+            }
+        }
+
+        // Build directory tree
+        function buildFileTree(files) {
+            const tree = {};
+            files.forEach((file, index) => {
+                const parts = file.split('/');
+                let current = tree;
+                parts.forEach((part, i) => {
+                    if (i === parts.length - 1) {
+                        // Leaf node (file)
+                        if (!current._files) current._files = [];
+                        current._files.push({ name: part, index: index, fullPath: file });
+                    } else {
+                        // Directory node
+                        if (!current[part]) current[part] = {};
+                        current = current[part];
+                    }
+                });
+            });
+
+            renderFileTree(tree, document.getElementById('fileTree'), '');
+        }
+
+        // Render directory tree
+        function renderFileTree(node, container, path) {
+            Object.keys(node).sort().forEach(key => {
+                if (key === '_files') {
+                    // Render files
+                    node[key].forEach(file => {
+                        const div = document.createElement('div');
+                        div.className = 'tree-item';
+                        div.textContent = '📄 ' + file.name;
+                        div.dataset.index = file.index;
+                        div.dataset.fullPath = file.fullPath;
+                        div.onclick = () => {
+                            loadFileByIndex(file.index);
+                            document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('selected'));
+                            div.classList.add('selected');
+                        };
+                        container.appendChild(div);
+                    });
+                } else {
+                    // Render folder
+                    const folderDiv = document.createElement('div');
+                    folderDiv.className = 'tree-folder';
+                    folderDiv.textContent = '📁 ' + key;
+
+                    const subContainer = document.createElement('div');
+                    subContainer.className = 'tree-folder-content';
+                    subContainer.style.maxHeight = 'none'; // Start expanded
+
+                    // Toggle folder on click
+                    folderDiv.onclick = (e) => {
+                        e.stopPropagation();
+                        if (subContainer.classList.contains('collapsed')) {
+                            subContainer.classList.remove('collapsed');
+                            subContainer.style.maxHeight = 'none';
+                            folderDiv.textContent = '📁 ' + key;
+                        } else {
+                            subContainer.classList.add('collapsed');
+                            subContainer.style.maxHeight = '0';
+                            folderDiv.textContent = '📂 ' + key;
+                        }
+                    };
+
+                    container.appendChild(folderDiv);
+                    container.appendChild(subContainer);
+
+                    renderFileTree(node[key], subContainer, path + key + '/');
+                }
+            });
+        }
+
+        // Toggle sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const btn = document.getElementById('toggleSidebarBtn');
+            sidebarOpen = !sidebarOpen;
+
+            if (sidebarOpen) {
+                sidebar.classList.remove('collapsed');
+                btn.classList.add('sidebar-open');
+            } else {
+                sidebar.classList.add('collapsed');
+                btn.classList.remove('sidebar-open');
+            }
+        }
+
+        // Tree search
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('treeSearch').addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                document.querySelectorAll('.tree-item').forEach(item => {
+                    const text = item.textContent.toLowerCase();
+                    if (text.includes(query) || query === '') {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        });
+
+        // Load file by index (from tree)
+        function loadFileByIndex(index) {
+            const globalIndex = allIndices.indexOf(index);
+            if (globalIndex !== -1) {
+                loadFile(globalIndex);
+            }
+        }
+
+        // Load file by index
+        async function loadFile(index) {
+            if (allIndices.length === 0) return;
+
+            currentIndex = Math.max(0, Math.min(index, allIndices.length - 1));
+            const fileIndex = allIndices[currentIndex];
+
+            updateCounter();
+            document.getElementById('imageContainer').innerHTML = '<div class="loading">Loading...</div>';
+            document.getElementById('imageContainer2').innerHTML = '<div class="loading">Loading...</div>';
+            document.getElementById('exifContent').textContent = 'Loading...';
+            document.getElementById('jsonContent').textContent = 'Loading...';
+
+            // Hide both image sections by default
+            document.getElementById('imageSection1').style.display = 'none';
+            document.getElementById('croppedImageSection').style.display = 'none';
+
+            try {
+                const response = await fetch(`/api/file/${fileIndex}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                // Display EXIF (use pre-formatted string to preserve field order)
+                document.getElementById('exifContent').textContent = data.exif_json_str || JSON.stringify(data.exif || {}, null, 2);
+
+                // Display JSON (use pre-formatted string to preserve field order)
+                document.getElementById('jsonContent').textContent = data.data_json_str || JSON.stringify(data.data, null, 2);
+
+                // Display primary image
+                if (data.image) {
+                    const img1 = document.createElement('img');
+                    img1.src = 'data:image/jpeg;base64,' + data.image;
+                    document.getElementById('imageContainer').innerHTML = '';
+                    document.getElementById('imageContainer').appendChild(img1);
+                    document.getElementById('imageSection1').style.display = 'block';
+
+                    if (data.cropped_image) {
+                        // WindBlade with two images (vertical stack)
+                        document.getElementById('croppedImageSection').style.display = 'block';
+
+                        // Display cropped image
+                        const img2 = document.createElement('img');
+                        img2.src = 'data:image/jpeg;base64,' + data.cropped_image;
+                        document.getElementById('imageContainer2').innerHTML = '';
+                        document.getElementById('imageContainer2').appendChild(img2);
+                    }
+                } else {
+                    document.getElementById('imageContainer').innerHTML =
+                        '<div class="error">Image not found</div>';
+                    document.getElementById('imageSection1').style.display = 'block';
+                }
+
+                document.getElementById('statusBar').textContent = `Loaded: ${data.filename}`;
+
+                // Update tree selection
+                document.querySelectorAll('.tree-item').forEach(item => {
+                    if (parseInt(item.dataset.index) === fileIndex) {
+                        item.classList.add('selected');
+                    } else {
+                        item.classList.remove('selected');
+                    }
+                });
+            } catch (error) {
+                showError('Failed to load file: ' + error.message);
+            }
+        }
+
+        // Search files
+        async function searchFiles(query) {
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                allIndices = data.indices;
+
+                if (allIndices.length > 0) {
+                    currentIndex = 0;
+                    loadFile(0);
+                } else {
+                    document.getElementById('statusBar').textContent = 'No files match search query';
+                }
+
+                updateCounter();
+            } catch (error) {
+                showError('Search failed: ' + error.message);
+            }
+        }
+
+        // Navigation functions
+        function nextFile() {
+            if (allIndices.length > 0) {
+                loadFile((currentIndex + 1) % allIndices.length);
+            }
+        }
+
+        function prevFile() {
+            if (allIndices.length > 0) {
+                loadFile((currentIndex - 1 + allIndices.length) % allIndices.length);
+            }
+        }
+
+        // Update counter display
+        function updateCounter() {
+            document.getElementById('counter').textContent =
+                `File ${currentIndex + 1} of ${allIndices.length}`;
+
+            document.getElementById('prevBtn').disabled = allIndices.length === 0;
+            document.getElementById('nextBtn').disabled = allIndices.length === 0;
+        }
+
+        // Show error
+        function showError(message) {
+            document.getElementById('imageContainer').innerHTML =
+                `<div class="error">${message}</div>`;
+            document.getElementById('statusBar').textContent = 'Error: ' + message;
+        }
+
+        // Search input handler
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchFiles(e.target.value);
+            }, 300);
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+
+            if (e.key === 'ArrowRight' || e.key === 'n') {
+                nextFile();
+            } else if (e.key === 'ArrowLeft' || e.key === 'p') {
+                prevFile();
+            } else if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                document.getElementById('searchInput').focus();
+            }
+        });
+
+        // Initialize
+        loadFileList();
+    </script>
+</body>
+
+</html>
